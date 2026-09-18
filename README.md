@@ -1,4 +1,4 @@
-# Cybersecurity RAG Assistant
+# RAG Assistant
 
 This project is a local question-answering application for critical
 infrastructure sector cybersecurity research. It helps users ask
