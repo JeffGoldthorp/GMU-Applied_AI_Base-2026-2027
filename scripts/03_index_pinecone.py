@@ -251,7 +251,8 @@ def main(chunks_path: str, reset: bool = False, namespace: str = ""):
 
             source = item.get("source_file", "unknown")
             chunk = item.get("chunk_id", "no_chunk")
-            vector_id = item.get("id") or f"{item['source_file']}::{item['chunk_id']}"
+            raw_id = str(item.get("id") or f"{item['source_file']}::{item['chunk_id']}")
+            vector_id = raw_id.encode("ascii", "backslashreplace").decode("ascii")
 
 
             vectors.append({
