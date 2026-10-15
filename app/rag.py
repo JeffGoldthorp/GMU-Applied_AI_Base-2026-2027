@@ -1120,7 +1120,7 @@ def _sanitize_generated_output(out: Dict[str, Any], contexts: List[Dict[str, Any
 def retrieve(
     query: str,
     top_k: int = 8,
-    min_score: float = 0.65,
+    min_score: float = 0.55,
     exclude_owner_responses: bool = True,
 ) -> List[Dict[str, Any]]:
     try:
