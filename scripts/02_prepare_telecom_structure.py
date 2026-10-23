@@ -10,10 +10,10 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 BASE_DIR = ROOT_DIR / "data" / "pdf"
 OUTPUT_FILE = ROOT_DIR / "data" / "telecom_structure_corpus.jsonl"
 
-SECTOR = "Energy"
-ORGANIZATION = "NERC"
-REGULATION_FAMILY = "NERC CIP"
-DOCUMENT_TYPE = "Standard"
+SECTOR = "Telecommunications"
+ORGANIZATION = "Multiple Sources"
+REGULATION_FAMILY = "Not Applicable"
+DOCUMENT_TYPE = "Reference Document"
 
 CHUNK_SIZE = 900
 CHUNK_OVERLAP = 100
