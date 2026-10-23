@@ -1356,11 +1356,13 @@ def generate_grounded_response(
     top_k: int = 8,
     min_recurring_reviews: int = 2,
     include_debug: bool = False,
+    min_score: float = 0.55,
 ):
+
 
     workflow = wants_workflow_output(query)
 
-    contexts = retrieve(query, top_k=top_k)
+    contexts = retrieve(query, top_k=top_k, min_score=min_score)
 
     try:
         client = OpenAI(api_key=_env("OPENAI_API_KEY"))
