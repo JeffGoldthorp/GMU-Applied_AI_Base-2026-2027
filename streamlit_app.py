@@ -1,14 +1,15 @@
 # streamlit_app.py
-# Energy Sector Cybersecurity Risk Mitigation Bot (RAG UI)
+# Sunny Day Telecommunications Outage Assistant (RAG UI)
 
 import json
 import time
 import uuid
-import streamlit as st  # type: ignore[import]
+import streamlit as st
 from app.rag import generate_grounded_response
 
+
 st.set_page_config(
-    page_title="Energy Cybersecurity RAG",
+    page_title="Telecom Outage Assistant",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -75,15 +76,35 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+# =========================
+# Example Telecom Questions
+# =========================
+
 QUICK_PROMPTS = [
-    "Identify the most common attack vectors used against energy-sector ICS/OT systems.",
-    "Using Energy Sector sources, categorize top cybersecurity risks by OT, IT, and cyber-physical systems.",
-    "Draft policy recommendations to reduce insecure remote access risk for electric utilities.",
+    (
+        "Fiber Cuts & Construction",
+        "What are the recommended best practices for preventing "
+        "excavation damage to buried telecom facilities?",
+    ),
+    (
+        "Power Outages",
+        "How can power outages affect telecommunications networks, "
+        "and what measures can improve network resilience "
+        "during power failures?",
+    ),
+    (
+        "911 Network Reliability",
+        "What causes 911 network outages and what actions "
+        "can improve 911 reliability?",
+    ),
 ]
+
 
 # =========================
 # State
 # =========================
+
 def _init_state():
     if "conversations" not in st.session_state:
         st.session_state.conversations = {}
@@ -104,12 +125,15 @@ def _init_state():
 
 def _new_chat():
     cid = str(uuid.uuid4())
+
     st.session_state.conversations[cid] = {
-        "title": "New cybersecurity query",
+        "title": "New telecom question",
         "messages": [],
         "created": time.time(),
     }
+
     st.session_state.active_chat_id = cid
+    st.session_state.pending_prompt = None
 
 
 def _ensure_active():
@@ -122,6 +146,7 @@ def _ensure_active():
             st.session_state.conversations.items(),
             key=lambda x: x[1]["created"]
         )[0]
+
         st.session_state.active_chat_id = newest
 
 
@@ -135,6 +160,7 @@ def _sorted():
 
 def _delete(cid):
     st.session_state.conversations.pop(cid, None)
+
     if not st.session_state.conversations:
         _new_chat()
     else:
@@ -142,107 +168,173 @@ def _delete(cid):
 
 
 # =========================
-# Init
+# Initialize
 # =========================
+
 _init_state()
+
 if not st.session_state.active_chat_id:
     _new_chat()
+
 _ensure_active()
 
 cid = st.session_state.active_chat_id
 convo = st.session_state.conversations[cid]
 
+
 # =========================
 # Sidebar
 # =========================
-with st.sidebar:
-    st.header("Energy Cyber RAG")
 
-    if st.button("New analysis", use_container_width=True):
+with st.sidebar:
+    st.header("Telecom Outage RAG")
+
+    if st.button("New chat", use_container_width=True):
         _new_chat()
         st.rerun()
 
     st.divider()
 
-    ids = [i[0] for i in _sorted()]
+    # FIX 1:
+    # Use buttons instead of a radio selector.
+    # This prevents New Chat from switching back
+    # to the previous conversation.
 
-    selected = st.radio(
-        "History",
-        ids,
-        index=ids.index(cid) if cid in ids else 0,
-        format_func=lambda x: st.session_state.conversations[x]["title"],
-    )
-    st.session_state.active_chat_id = selected
-    convo = st.session_state.conversations[selected]
+    st.caption("History")
+
+    for chat_id, chat_data in _sorted():
+        is_active = (
+            chat_id == st.session_state.active_chat_id
+        )
+
+        label = (
+            ("● " if is_active else "")
+            + chat_data["title"]
+        )
+
+        if st.button(
+            label,
+            key=f"open_chat_{chat_id}",
+            use_container_width=True
+        ):
+            st.session_state.active_chat_id = chat_id
+            st.rerun()
+
+    convo = st.session_state.conversations[
+        st.session_state.active_chat_id
+    ]
 
     st.divider()
 
     with st.expander("⚙️ Settings"):
         st.session_state.settings["top_k"] = st.slider(
             "Retrieved evidence chunks",
-            3, 30,
+            3,
+            30,
             st.session_state.settings["top_k"]
         )
+
         st.session_state.settings["debug_on"] = st.toggle(
             "Debug mode",
             st.session_state.settings["debug_on"]
         )
 
     st.divider()
-    st.caption("Best for NERC CIP, CISA, DOE C2M2, NIST, OT/ICS risk, and energy-sector policy development.")
+
+    st.caption(
+        "Telecom outage support: fiber damage, power failures, "
+        "911 reliability, and network resilience. "
+        "Answers should be checked against their sources."
+    )
+
 
 # =========================
-# Header
+# Main Header
 # =========================
+
 st.markdown(
     """
     <div class="app-header">
-        <h1>Energy Sector Cybersecurity Risk Mitigation Assistant</h1>
-        <p>Grounded policy and risk analysis over NERC CIP, CISA, DOE, NIST, FERC, and OT/ICS cybersecurity sources.</p>
+        <h1>Sunny Day Telecommunications Outage Assistant</h1>
+        <p>
+        Explore everyday telecom service outages and possible
+        prevention steps using retrieved source documents.
+        </p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="quick-row"></div>', unsafe_allow_html=True)
+
+# =========================
+# Quick Questions
+# =========================
+
+st.markdown(
+    '<div class="quick-row"></div>',
+    unsafe_allow_html=True
+)
+
 quick_cols = st.columns(3)
-for idx, quick_prompt in enumerate(QUICK_PROMPTS):
+
+for idx, (button_label, question) in enumerate(QUICK_PROMPTS):
     with quick_cols[idx]:
-        if st.button(quick_prompt, use_container_width=True):
-            st.session_state.pending_prompt = quick_prompt
+        if st.button(
+            button_label,
+            use_container_width=True
+        ):
+            st.session_state.pending_prompt = question
             st.rerun()
 
-# =========================
-# Render history
-# =========================
-for m in convo["messages"]:
-    with st.chat_message(m["role"]):
-        st.markdown(m["content"])
 
-prompt = st.chat_input("Ask about energy-sector cyber risk, policy, controls, or compliance gaps...")
-active_prompt = prompt or st.session_state.pending_prompt
+# =========================
+# Current Input
+# =========================
+
+prompt = st.chat_input(
+    "Ask about telecom outages, possible causes, "
+    "prevention, or recovery..."
+)
+
+active_prompt = (
+    prompt or st.session_state.pending_prompt
+)
+
 if st.session_state.pending_prompt:
     st.session_state.pending_prompt = None
 
+
 # =========================
-# Rendering helpers
+# Source Helpers
 # =========================
+
 def _source_index(out: dict) -> dict:
     index = {}
+
     for source in out.get("retrieval_sources", []):
         if isinstance(source, dict) and source.get("chunk_id"):
             index[source["chunk_id"]] = source
+
     for source in out.get("sources", []):
         if isinstance(source, dict) and source.get("chunk_id"):
             index[source["chunk_id"]] = source
+
     return index
 
 
 def _source_label(source: dict) -> str:
-    title = source.get("document_title") or source.get("source_file") or source.get("source_url") or "Source"
+    title = (
+        source.get("document_title")
+        or source.get("source_file")
+        or source.get("source_url")
+        or "Source"
+    )
+
     page = source.get("page_number")
+
     if page not in (None, "", 0, "0"):
         return f"{title}, p. {page}"
+
     return str(title)
 
 
@@ -256,18 +348,30 @@ def _render_source_list(source_items: list):
 
         url = source.get("source_url")
         label = _source_label(source)
-        key = url or source.get("source_file") or source.get("document_title") or label
+
+        key = (
+            url
+            or source.get("source_file")
+            or source.get("document_title")
+            or label
+        )
+
         if key in seen:
             continue
+
         seen.add(key)
         rendered = True
 
         if url:
             st.markdown(f"- [{label}]({url})")
+
         else:
             source_file = source.get("source_file")
+
             if source_file:
-                st.markdown(f"- {label} (`{source_file}`)")
+                st.markdown(
+                    f"- {label} (`{source_file}`)"
+                )
             else:
                 st.markdown(f"- {label}")
 
@@ -277,157 +381,342 @@ def _render_source_list(source_items: list):
 
 def _sources_for_ids(source_ids: list, index: dict) -> list:
     sources = []
+
     for source_id in source_ids or []:
         if isinstance(source_id, dict):
             sources.append(source_id)
+
         elif source_id in index:
             sources.append(index[source_id])
+
     return sources
 
 
+# =========================
+# Display RAG Response
+# =========================
+
 def render_response(out: dict):
     source_index = _source_index(out)
+
     attack_vectors = out.get("attack_vectors", [])
     risk_categories = out.get("risk_categories", [])
-    has_structured_findings = bool(attack_vectors or risk_categories)
 
-    summary = out.get("answer_summary") or out.get("summary") or ""
+    has_structured_findings = bool(
+        attack_vectors or risk_categories
+    )
+
+    summary = (
+        out.get("answer_summary")
+        or out.get("summary")
+        or ""
+    )
+
     if summary:
         st.subheader("Answer")
         st.write(summary)
         st.divider()
 
+    # Key Points
     points = out.get("key_points", [])
+
     if points and not has_structured_findings:
         st.subheader("Key Points")
+
         for p in points:
             if isinstance(p, dict):
-                text = p.get("point") or p.get("text") or str(p)
+                text = (
+                    p.get("point")
+                    or p.get("text")
+                    or str(p)
+                )
+
                 st.markdown(f"- **{text}**")
-                point_sources = _sources_for_ids(p.get("source_chunk_ids", []), source_index)
+
+                point_sources = _sources_for_ids(
+                    p.get("source_chunk_ids", []),
+                    source_index
+                )
+
                 if point_sources:
                     _render_source_list(point_sources)
+
             else:
                 st.markdown(f"- **{p}**")
 
         st.divider()
 
+    # Attack Vectors
     if attack_vectors:
         st.subheader("Attack Vectors")
+
         for vector in attack_vectors:
             if not isinstance(vector, dict):
                 st.markdown(f"- {vector}")
                 continue
-            st.markdown(f"- **{vector.get('vector', 'Attack vector')}**")
+
+            st.markdown(
+                f"- **{vector.get('vector', 'Attack vector')}**"
+            )
+
             if vector.get("how_it_is_used"):
                 st.write(vector.get("how_it_is_used"))
+
             if vector.get("typical_targets"):
-                st.caption(f"Typical targets: {vector.get('typical_targets')}")
+                st.caption(
+                    f"Typical targets: {vector.get('typical_targets')}"
+                )
+
             if vector.get("mitigation_focus"):
-                st.caption(f"Mitigation focus: {vector.get('mitigation_focus')}")
-            vector_sources = vector.get("sources") or _sources_for_ids(vector.get("evidence", []), source_index)
+                st.caption(
+                    f"Mitigation focus: {vector.get('mitigation_focus')}"
+                )
+
+            vector_sources = (
+                vector.get("sources")
+                or _sources_for_ids(
+                    vector.get("evidence", []),
+                    source_index
+                )
+            )
+
             if vector_sources:
                 _render_source_list(vector_sources)
+
         st.divider()
 
+    # Risk Categories
     if risk_categories:
         st.subheader("Risk Categories")
+
         for category in risk_categories:
             if not isinstance(category, dict):
                 continue
-            st.markdown(f"**{category.get('category', 'Risk Category')}**")
+
+            st.markdown(
+                f"**{category.get('category', 'Risk Category')}**"
+            )
+
             for risk in category.get("risks", []) or []:
                 if not isinstance(risk, dict):
                     st.markdown(f"- {risk}")
                     continue
-                st.markdown(f"- **{risk.get('risk', 'Risk')}**")
+
+                st.markdown(
+                    f"- **{risk.get('risk', 'Risk')}**"
+                )
+
                 if risk.get("why_it_matters"):
                     st.write(risk.get("why_it_matters"))
+
                 if risk.get("mitigation_focus"):
-                    st.caption(f"Mitigation focus: {risk.get('mitigation_focus')}")
-                risk_sources = risk.get("sources") or _sources_for_ids(risk.get("evidence", []), source_index)
+                    st.caption(
+                        f"Mitigation focus: {risk.get('mitigation_focus')}"
+                    )
+
+                risk_sources = (
+                    risk.get("sources")
+                    or _sources_for_ids(
+                        risk.get("evidence", []),
+                        source_index
+                    )
+                )
+
                 if risk_sources:
                     _render_source_list(risk_sources)
+
         st.divider()
 
+    # Key Requirements
     reqs = out.get("key_requirements", [])
+
     if reqs:
         st.subheader("Key Requirements")
+
         for r in reqs:
             if isinstance(r, dict):
-                st.markdown(f"- **{r.get('requirement', '')}**")
-                _render_source_list(_sources_for_ids(r.get("evidence", []), source_index))
+                st.markdown(
+                    f"- **{r.get('requirement', '')}**"
+                )
+
+                _render_source_list(
+                    _sources_for_ids(
+                        r.get("evidence", []),
+                        source_index
+                    )
+                )
+
             else:
                 st.markdown(f"- **{r}**")
 
         st.divider()
 
+    # Recommendations
     recs = out.get("policy_recommendations", [])
+
     if recs:
-        st.subheader("🛡️ Policy Recommendations")
+        st.subheader("🛡️ Recommended Actions")
+
         for r in recs:
             if isinstance(r, dict):
-                st.markdown(f"**→ {r.get('recommendation', '')}**")
-                st.write(r.get("justification", ""))
-                _render_source_list(_sources_for_ids(r.get("evidence", []), source_index))
+                st.markdown(
+                    f"**→ {r.get('recommendation', '')}**"
+                )
+
+                st.write(
+                    r.get("justification", "")
+                )
+
+                _render_source_list(
+                    _sources_for_ids(
+                        r.get("evidence", []),
+                        source_index
+                    )
+                )
+
             elif isinstance(r, str):
                 st.markdown(f"**→ {r}**")
+
             else:
                 st.write(r)
 
         st.divider()
 
+    # Draft Guidance
     draft = out.get("draft_policy_language", [])
+
     if draft:
-        st.subheader("📄 Draft Policy Language")
+        st.subheader("📄 Draft Guidance / Policy Language")
+
         for d in draft:
             if isinstance(d, dict):
-                st.markdown(f"### {d.get('section', 'Section')}")
-                st.code(d.get("text", ""))
+                st.markdown(
+                    f"### {d.get('section', 'Section')}"
+                )
+
+                st.code(
+                    d.get("text", "")
+                )
+
             else:
                 st.code(str(d))
+
         st.divider()
 
+    # Sources
     st.subheader("Sources")
+
     source_items = []
+
     for r in out.get("key_requirements", []):
         if isinstance(r, dict):
-            source_items.extend(_sources_for_ids(r.get("evidence", []), source_index))
+            source_items.extend(
+                _sources_for_ids(
+                    r.get("evidence", []),
+                    source_index
+                )
+            )
 
     for r in out.get("policy_recommendations", []):
         if isinstance(r, dict):
-            source_items.extend(_sources_for_ids(r.get("evidence", []), source_index))
+            source_items.extend(
+                _sources_for_ids(
+                    r.get("evidence", []),
+                    source_index
+                )
+            )
 
     for p in out.get("key_points", []):
         if isinstance(p, dict):
-            source_items.extend(_sources_for_ids(p.get("source_chunk_ids", []), source_index))
+            source_items.extend(
+                _sources_for_ids(
+                    p.get("source_chunk_ids", []),
+                    source_index
+                )
+            )
 
     for s in out.get("sources", []):
         if isinstance(s, dict):
             source_items.append(s)
+
         elif isinstance(s, str):
-            source_items.extend(_sources_for_ids([s], source_index))
+            source_items.extend(
+                _sources_for_ids(
+                    [s],
+                    source_index
+                )
+            )
 
     if not source_items:
-        source_items = out.get("retrieval_sources", [])
+        source_items = out.get(
+            "retrieval_sources", []
+        )
+
     _render_source_list(source_items)
 
+    # Debug Mode
     if st.session_state.settings["debug_on"]:
         with st.expander("Debug JSON"):
-            st.code(json.dumps(out, indent=2))
+            st.code(
+                json.dumps(out, indent=2)
+            )
 
 
 # =========================
-# Chat flow
+# FIX 2: Render Complete Chat History
 # =========================
+
+# Save and display complete responses,
+# including recommendations and citations.
+
+for message in convo["messages"]:
+    with st.chat_message(message["role"]):
+
+        if (
+            message["role"] == "assistant"
+            and isinstance(message.get("output"), dict)
+        ):
+            result = message["output"]
+
+            if "error" in result:
+                st.error(result["error"])
+                st.code(
+                    result.get("raw_output", "")
+                )
+            else:
+                render_response(result)
+
+        else:
+            st.markdown(
+                message.get("content", "")
+            )
+
+
+# =========================
+# Chat Flow
+# =========================
+
 if active_prompt:
-    convo["messages"].append({"role": "user", "content": active_prompt})
+
+    # Name the conversation using its first question.
+    if not convo["messages"]:
+        convo["title"] = (
+            active_prompt[:46]
+            + ("..." if len(active_prompt) > 46 else "")
+        )
+
+    convo["messages"].append({
+        "role": "user",
+        "content": active_prompt
+    })
 
     with st.chat_message("user"):
         st.markdown(active_prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Retrieving evidence, refreshing web sources, and building grounded analysis..."):
+        with st.spinner(
+            "Searching sources and preparing a cited response..."
+        ):
             out = generate_grounded_response(
                 query=active_prompt,
                 top_k=st.session_state.settings["top_k"],
@@ -437,11 +726,17 @@ if active_prompt:
 
         if "error" in out:
             st.error(out["error"])
-            st.code(out.get("raw_output", ""))
+            st.code(
+                out.get("raw_output", "")
+            )
+
         else:
             render_response(out)
 
-            convo["messages"].append({
-                "role": "assistant",
-                "content": out.get("answer_summary", "") or out.get("summary", "")
-            })
+        # Store the full result instead of only the summary.
+        # This keeps all answers and citations in chat history.
+
+        convo["messages"].append({
+            "role": "assistant",
+            "output": out,
+        })
