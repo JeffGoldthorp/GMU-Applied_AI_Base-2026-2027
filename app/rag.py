@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from collections import defaultdict
 from urllib.parse import urlparse
+from app.hybrid_retrieval import (
+    bm25_retrieve,
+    hybrid_fusion,
+    rerank_with_openai
+)
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -23,7 +28,7 @@ except ImportError:
         GoogleSearch = None
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-DATASET_PATH = ROOT_DIR / "data" / "critical_infra_corpus.jsonl"
+DATASET_PATH = ROOT_DIR / "data" / "telecom_structure_corpus.jsonl"
 
 
 def _resolve_env_path() -> Optional[Path]:
@@ -1199,6 +1204,47 @@ def retrieve(
         )
 
 
+def retrieve_phase2(query, top_k=8, min_score=0.55):
+
+
+    client = OpenAI(api_key=_env("OPENAI_API_KEY"))
+
+
+    semantic = retrieve(
+        query=query,
+        top_k=20,
+        min_score=min_score
+    )
+
+    # BM25 search using the local telecom corpus.
+    corpus = _read_local_corpus()
+    if not corpus:
+        raise RuntimeError("Telecom corpus is missing or empty")
+
+    keyword = bm25_retrieve(
+        query=query,
+        corpus=corpus,
+        top_k=20
+    )
+
+    fused = hybrid_fusion(
+        semantic=semantic,
+        keyword=keyword,
+        top_k=12
+    )
+
+
+    ranked = rerank_with_openai(
+        client=client,
+        query=query,
+        candidates=fused,
+        top_k=top_k
+    )
+
+    return ranked
+
+
+
 # =========================================================
 # AGGREGATION
 # =========================================================
@@ -1358,11 +1404,22 @@ def generate_grounded_response(
     include_debug: bool = False,
     min_score: float = 0.55,
 ):
-
-
     workflow = wants_workflow_output(query)
 
-    contexts = retrieve(query, top_k=top_k, min_score=min_score)
+    retrieval_mode = os.getenv("RETRIEVAL_MODE", "baseline")
+
+    if retrieval_mode == "phase2":
+        contexts = retrieve_phase2(
+            query=query,
+            top_k=top_k,
+            min_score=min_score
+        )
+    else:
+        contexts = retrieve(
+            query=query,
+            top_k=top_k,
+            min_score=min_score
+        )
 
     try:
         client = OpenAI(api_key=_env("OPENAI_API_KEY"))
@@ -1379,7 +1436,12 @@ def generate_grounded_response(
         out["retrieval_sources"] = _retrieval_sources(contexts)
         return out
 
-    external_contexts, external_stats = refresh_external_contexts(query, client)
+    external_contexts = []
+    external_stats = {
+        "serpapi_docs": 0,
+        "external_chunks": 0,
+        "pinecone_upserted": 0
+    }
     combined_limit = max(top_k + len(external_contexts), top_k)
     contexts = _dedupe_contexts(contexts + external_contexts, limit=combined_limit)
     agg = aggregate_contexts(contexts)

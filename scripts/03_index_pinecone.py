@@ -9,7 +9,7 @@ from tqdm import tqdm
 from openai import OpenAI
 from pinecone import Pinecone, ServerlessSpec
 
-from control_families import detect_controls
+from app.control_families import detect_controls
 
 load_dotenv()
 

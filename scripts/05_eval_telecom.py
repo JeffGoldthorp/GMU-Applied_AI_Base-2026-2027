@@ -191,6 +191,7 @@ if __name__ == "__main__":
         choices=[
             "group38-telecom-test",
             "group38-telecom-structure-v1",
+            "group38-phase2-local",
         ],
     )
 
