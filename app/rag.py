@@ -1267,7 +1267,7 @@ def aggregate_contexts(contexts: List[Dict[str, Any]]) -> Dict[str, Any]:
 # =========================================================
 # PROMPT
 # =========================================================
-def build_prompt(query, contexts, agg, workflow):
+def build_prompt(query, contexts, agg, workflow, prompt_mode=None):
 
     ctx = []
     for c in contexts:
@@ -1351,6 +1351,54 @@ Error handling:
 
 Follow these rules exactly. Responses that ignore these constraints should be avoided.
 """
+    # =====================================================
+    # PHASE 3: STRUCTURED PROMPT ENGINEERING EXPERIMENT
+    # =====================================================
+
+    mode = (
+        prompt_mode
+        if prompt_mode is not None
+        else os.getenv("PROMPT_MODE", "baseline")
+    )
+
+    if mode.lower() == "phase3":
+        system += """
+
+    PHASE 3: EVIDENCE-GROUNDED RESPONSE INSTRUCTIONS
+
+    1. EVIDENCE SELECTION
+    - Identify the retrieved chunks that directly answer the question.
+    - Prioritize relevant evidence over general background information.
+    - Do not use unrelated chunks merely to increase citation counts.
+
+    2. CLAIM-LEVEL GROUNDING
+    - Every factual recommendation must be supported by retrieved evidence.
+    - Only cite chunk IDs that directly support the associated claim.
+    - Do not treat the existence of a retrieved source as proof that it
+      supports the answer.
+
+    3. CITATION ACCURACY
+    - Use the exact chunk_id values from the supplied context.
+    - Verify that the cited excerpt supports the recommendation.
+    - Do not invent citations, document titles, or page numbers.
+
+    4. INSUFFICIENT EVIDENCE
+    - If the retrieved context does not support a claim, omit the claim.
+    - If the question cannot be answered adequately, explicitly state
+      that the available evidence is insufficient.
+
+    5. ANSWER QUALITY
+    - Prioritize accurate and relevant information over response length.
+    - Avoid repetitive recommendations and generic filler.
+    - Preserve important technical details when they are supported.
+    - Make the final response clear, concise, and actionable.
+
+    6. INTERNAL QUALITY CHECK
+    - Before producing the final answer, check that each factual claim
+      has supporting evidence in the provided context.
+    - Remove unsupported claims and incorrect citations.
+    - Return only the final JSON response in the required schema.
+    """
 
     if workflow:
         schema = """
